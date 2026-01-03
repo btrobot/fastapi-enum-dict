@@ -1,0 +1,53 @@
+"""
+Pydantic Schemas
+
+此文件由 fastapi-enum-dict 自动生成
+"""
+from pydantic import BaseModel, Field
+from typing import Optional, List, Literal
+
+
+# ==================== 通用响应 ====================
+
+class SuccessResponse(BaseModel):
+    """成功响应"""
+    success: bool = True
+    message: str
+    data: Optional[dict] = None
+
+
+# ==================== Enum Schemas ====================
+
+class EnumCreateRequest(BaseModel):
+    """创建Enum请求"""
+    name: str = Field(..., description="Enum name")
+    values: List[str] = Field(..., min_length=1, description="Value list")
+    description: Optional[str] = None
+
+
+class EnumUpdateRequest(BaseModel):
+    """更新Enum请求"""
+    operation: Literal["add", "remove", "rename"]
+    label: Optional[str] = None
+    value: Optional[int] = None
+    old_label: Optional[str] = None
+    new_label: Optional[str] = None
+
+
+# ==================== Dict Schemas ====================
+
+class DictCreateRequest(BaseModel):
+    """创建Dict请求"""
+    dict_code: str = Field(..., description="Dict code")
+    dict_name: str = Field(..., description="Dict name")
+    values: List[str] = Field(..., min_length=1, description="Value list")
+    description: Optional[str] = None
+
+
+class DictUpdateRequest(BaseModel):
+    """更新Dict请求"""
+    operation: Literal["add", "remove", "rename"]
+    label: Optional[str] = None
+    value_id: Optional[int] = None
+    old_label: Optional[str] = None
+    new_label: Optional[str] = None

@@ -1,0 +1,198 @@
+"""
+Dict管理器 - 数据库CRUD操作
+
+此文件由 fastapi-enum-dict 自动生成
+"""
+from typing import List, Optional
+from sqlalchemy.orm import Session
+from {{ base_dir }}.models.dict_models import DictType, DictData
+
+
+class DictManager:
+    """Dict管理器（数据库操作）"""
+    
+    def __init__(self, db: Session):
+        """初始化"""
+        self.db = db
+    
+    def create(self, dict_code: str, dict_name: str, values: List[str], description: str = None) -> dict:
+        """创建Dict"""
+        try:
+            # 检查是否存在
+            existing = self.db.query(DictType).filter_by(dict_code=dict_code).first()
+            if existing:
+                return {
+                    'success': False,
+                    'message': f'Dict {dict_code} already exists'
+                }
+            
+            # 创建DictType
+            dict_type = DictType(
+                dict_code=dict_code,
+                dict_name=dict_name,
+                description=description or dict_name
+            )
+            self.db.add(dict_type)
+            self.db.flush()
+            
+            # 创建DictData
+            for i, label in enumerate(values):
+                dict_data = DictData(
+                    dict_type_id=dict_type.id,
+                    dict_code=dict_code,
+                    dict_label=label,
+                    dict_value=self._to_upper_snake(label),
+                    sort_order=i + 1
+                )
+                self.db.add(dict_data)
+            
+            self.db.commit()
+            
+            return {
+                'success': True,
+                'message': f'Successfully created {dict_code}',
+                'dict_code': dict_code
+            }
+        except Exception as e:
+            self.db.rollback()
+            return {
+                'success': False,
+                'message': f'Failed to create: {e}'
+            }
+    
+    def list(self, search: Optional[str] = None) -> List[dict]:
+        """列出所有Dict"""
+        query = self.db.query(DictType)
+        
+        if search:
+            query = query.filter(
+                DictType.dict_name.like(f'%{search}%') | 
+                DictType.dict_code.like(f'%{search}%')
+            )
+        
+        dict_types = query.order_by(DictType.sort_order).all()
+        
+        result = []
+        for dt in dict_types:
+            count = self.db.query(DictData).filter_by(dict_type_id=dt.id).count()
+            result.append({
+                'dict_code': dt.dict_code,
+                'dict_name': dt.dict_name,
+                'description': dt.description,
+                'count': count,
+                'is_enabled': dt.is_enabled
+            })
+        
+        return result
+    
+    def show(self, dict_code: str) -> dict:
+        """显示Dict详情"""
+        dict_type = self.db.query(DictType).filter_by(dict_code=dict_code).first()
+        
+        if not dict_type:
+            return {
+                'success': False,
+                'message': f'Dict {dict_code} not found'
+            }
+        
+        data_items = self.db.query(DictData).filter_by(
+            dict_type_id=dict_type.id
+        ).order_by(DictData.sort_order).all()
+        
+        return {
+            'success': True,
+            'dict_code': dict_type.dict_code,
+            'dict_name': dict_type.dict_name,
+            'description': dict_type.description,
+            'values': [
+                {
+                    'id': item.id,
+                    'label': item.dict_label,
+                    'value': item.dict_value,
+                    'sort_order': item.sort_order,
+                    'is_enabled': item.is_enabled
+                }
+                for item in data_items
+            ]
+        }
+    
+    def update(self, dict_code: str, operation: str, **kwargs) -> dict:
+        """更新Dict"""
+        dict_type = self.db.query(DictType).filter_by(dict_code=dict_code).first()
+        
+        if not dict_type:
+            return {
+                'success': False,
+                'message': f'Dict {dict_code} not found'
+            }
+        
+        try:
+            if operation == 'add':
+                label = kwargs.get('label')
+                max_order = self.db.query(DictData).filter_by(
+                    dict_type_id=dict_type.id
+                ).order_by(DictData.sort_order.desc()).first()
+                
+                new_order = (max_order.sort_order + 1) if max_order else 1
+                
+                dict_data = DictData(
+                    dict_type_id=dict_type.id,
+                    dict_code=dict_code,
+                    dict_label=label,
+                    dict_value=self._to_upper_snake(label),
+                    sort_order=new_order
+                )
+                self.db.add(dict_data)
+                self.db.commit()
+                
+                return {
+                    'success': True,
+                    'message': f'Added {label} to {dict_code}'
+                }
+            
+            return {
+                'success': True,
+                'message': f'Update {operation} completed'
+            }
+        except Exception as e:
+            self.db.rollback()
+            return {
+                'success': False,
+                'message': f'Update failed: {e}'
+            }
+    
+    def delete(self, dict_code: str, force: bool = False) -> dict:
+        """删除Dict"""
+        dict_type = self.db.query(DictType).filter_by(dict_code=dict_code).first()
+        
+        if not dict_type:
+            return {
+                'success': False,
+                'message': f'Dict {dict_code} not found'
+            }
+        
+        try:
+            self.db.delete(dict_type)
+            self.db.commit()
+            
+            return {
+                'success': True,
+                'message': f'Deleted {dict_code}'
+            }
+        except Exception as e:
+            self.db.rollback()
+            return {
+                'success': False,
+                'message': f'Delete failed: {e}'
+            }
+    
+    def _to_upper_snake(self, text: str) -> str:
+        """转换为UPPER_SNAKE_CASE"""
+        mapping = {
+            '研发部': 'RD',
+            '测试部': 'QA',
+            '运维部': 'OPS',
+            '产品部': 'PM',
+            '设计部': 'DESIGN',
+        }
+        return mapping.get(text, text.upper().replace(' ', '_'))

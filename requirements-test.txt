@@ -1,0 +1,24 @@
+# 测试依赖
+
+# 核心测试框架
+pytest>=7.0.0
+pytest-cov>=4.0.0          # 覆盖率报告
+pytest-xdist>=3.0.0        # 并行测试
+
+# Mock和fixture
+pytest-mock>=3.10.0
+
+# 代码质量
+flake8>=6.0.0             # 代码风格检查
+black>=23.0.0             # 代码格式化
+mypy>=1.0.0               # 类型检查
+
+# 项目依赖（从pyproject.toml）
+click>=8.0.0
+jinja2>=3.0.0
+pyyaml>=6.0
+sqlalchemy>=2.0.0
+
+# FastAPI（用于集成测试）
+fastapi>=0.104.0
+uvicorn>=0.24.0

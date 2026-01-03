@@ -1,0 +1,101 @@
+"""
+Dict CRUD API
+
+此文件由 fastapi-enum-dict 自动生成
+"""
+from fastapi import APIRouter, HTTPException, Query, Depends
+from typing import List, Optional
+from sqlalchemy.orm import Session
+from {{ base_dir }}.schemas.enum_dict_schemas import DictCreateRequest, DictUpdateRequest, SuccessResponse
+from {{ base_dir }}.core.dict_manager import DictManager
+from {{ base_dir }}.models.database import get_db
+
+router = APIRouter()
+
+
+@router.post("/", response_model=SuccessResponse)
+async def create_dict(request: DictCreateRequest, db: Session = Depends(get_db)):
+    """创建Dict"""
+    manager = DictManager(db)
+    
+    result = manager.create(
+        dict_code=request.dict_code,
+        dict_name=request.dict_name,
+        values=request.values,
+        description=request.description
+    )
+    
+    if result['success']:
+        return SuccessResponse(
+            message=result['message'],
+            data={'dict_code': result.get('dict_code')}
+        )
+    else:
+        raise HTTPException(status_code=400, detail=result['message'])
+
+
+@router.get("/")
+async def list_dicts(
+    search: Optional[str] = Query(None),
+    db: Session = Depends(get_db)
+):
+    """列出所有Dict"""
+    manager = DictManager(db)
+    return manager.list(search=search)
+
+
+@router.get("/{dict_code}")
+async def get_dict(dict_code: str, db: Session = Depends(get_db)):
+    """获取Dict详情"""
+    manager = DictManager(db)
+    result = manager.show(dict_code)
+    
+    if result.get('success'):
+        return result
+    else:
+        raise HTTPException(status_code=404, detail=result['message'])
+
+
+@router.put("/{dict_code}", response_model=SuccessResponse)
+async def update_dict(
+    dict_code: str,
+    request: DictUpdateRequest,
+    db: Session = Depends(get_db)
+):
+    """更新Dict"""
+    manager = DictManager(db)
+    
+    kwargs = {}
+    if request.operation == "add":
+        kwargs['label'] = request.label
+    elif request.operation == "remove":
+        if request.value_id:
+            kwargs['value_id'] = request.value_id
+        elif request.label:
+            kwargs['label'] = request.label
+    elif request.operation == "rename":
+        kwargs['old_label'] = request.old_label
+        kwargs['new_label'] = request.new_label
+    
+    result = manager.update(dict_code, request.operation, **kwargs)
+    
+    if result['success']:
+        return SuccessResponse(message=result['message'])
+    else:
+        raise HTTPException(status_code=400, detail=result['message'])
+
+
+@router.delete("/{dict_code}", response_model=SuccessResponse)
+async def delete_dict(
+    dict_code: str,
+    force: bool = Query(False),
+    db: Session = Depends(get_db)
+):
+    """删除Dict"""
+    manager = DictManager(db)
+    result = manager.delete(dict_code, force=force)
+    
+    if result['success']:
+        return SuccessResponse(message=result['message'])
+    else:
+        raise HTTPException(status_code=400, detail=result['message'])

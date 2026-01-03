@@ -1,0 +1,91 @@
+"""
+类型识别器 - 自动判断Enum还是Dict
+
+此文件由 fastapi-enum-dict 自动生成
+"""
+from typing import Literal, Optional
+
+
+# 类型识别规则配置
+ENUM_KEYWORDS = ["性别", "状态", "类型", "级别", "优先级", "难度"]
+DICT_KEYWORDS = ["部门", "团队", "岗位", "标签", "地区", "分类", "类别"]
+
+ENUM_SUFFIXES = ("状态", "类型", "级别")
+DICT_SUFFIXES = ("分类", "目录", "列表")
+
+ENUM_MAX_ITEMS = 5
+DICT_MIN_ITEMS = 10
+
+
+def detect_type(
+    name: str,
+    items: list,
+    type_hint: Optional[str] = None
+) -> Literal["enum", "dict"]:
+    """
+    自动判断是Enum还是Dict
+    
+    决策树:
+    1. 如果有type_hint参数 → 使用指定类型
+    2. 检查值内容特征（中文、长度）
+    3. 检查关键词匹配
+    4. 检查数量规则
+    5. 检查名称后缀
+    6. 默认返回Enum (值少时)
+    """
+    # 规则1: type_hint优先
+    if type_hint:
+        return type_hint  # type: ignore
+    
+    # 规则2: 检查值的内容特征
+    if items:
+        # 检查是否包含中文字符
+        has_chinese = False
+        total_length = 0
+        
+        for item in items:
+            item_str = str(item)
+            total_length += len(item_str)
+            # 检查是否有Unicode中文字符（简体中文范围）
+            for char in item_str:
+                if '\u4e00' <= char <= '\u9fff':
+                    has_chinese = True
+                    break
+            if has_chinese:
+                break
+        
+        # 如果包含中文，倾向于dict
+        if has_chinese:
+            return "dict"
+        
+        # 检查平均长度
+        avg_length = total_length / len(items) if items else 0
+        # 如果平均长度超过10个字符，可能是描述性文本，倾向dict
+        if avg_length > 10:
+            return "dict"
+    
+    # 规则3: 关键词匹配
+    for keyword in ENUM_KEYWORDS:
+        if keyword in name:
+            return "enum"
+    
+    for keyword in DICT_KEYWORDS:
+        if keyword in name:
+            return "dict"
+    
+    # 规则4: 数量规则
+    item_count = len(items)
+    if item_count <= ENUM_MAX_ITEMS:
+        return "enum"
+    elif item_count > DICT_MIN_ITEMS:
+        return "dict"
+    
+    # 规则5: 名称后缀
+    if name.endswith(ENUM_SUFFIXES):
+        return "enum"
+    
+    if name.endswith(DICT_SUFFIXES):
+        return "dict"
+    
+    # 规则6: 默认（6-10个值时默认enum）
+    return "enum"

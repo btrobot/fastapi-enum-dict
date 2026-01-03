@@ -1,0 +1,35 @@
+"""
+枚举标签映射文件
+
+此文件由 fastapi-enum-dict 自动生成和管理
+"""
+from typing import Dict, Any
+
+
+# ==================== 枚举标签映射 ====================
+ENUM_LABELS: Dict[str, Dict[int, str]] = {
+    # 示例:
+    # "OrderStatus": {
+    #     0: "待付款",
+    #     1: "已付款"
+    # }
+}
+
+
+# ==================== 枚举元数据 ====================
+ENUM_METADATA: Dict[str, Dict[str, Any]] = {
+    # 示例:
+    # "OrderStatus": {
+    #     "description": "订单状态",
+    #     "type": "enum",
+    #     "db_type": "tinyint",
+    #     "values": [...]
+    # }
+}
+
+
+# ==================== 辅助函数 ====================
+def get_enum_label(enum_name: str, value: int) -> str:
+    """获取枚举标签"""
+    labels = ENUM_LABELS.get(enum_name, {})
+    return labels.get(value, str(value))

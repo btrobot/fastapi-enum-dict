@@ -1,0 +1,48 @@
+"""
+Dict数据库模型
+
+此文件由 fastapi-enum-dict 自动生成
+"""
+from sqlalchemy import Column, Integer, String, Boolean, Text, DateTime, ForeignKey
+from sqlalchemy.orm import relationship
+from datetime import datetime
+from {{ base_dir }}.models.database import Base
+
+
+class DictType(Base):
+    """字典类型表"""
+    __tablename__ = "dict_types"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    dict_code = Column(String(50), unique=True, nullable=False, index=True)
+    dict_name = Column(String(100), nullable=False)
+    description = Column(String(255))
+    is_enabled = Column(Boolean, default=True)
+    sort_order = Column(Integer, default=0)
+    remark = Column(Text)
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+    
+    # 关系
+    data_items = relationship("DictData", back_populates="dict_type", cascade="all, delete-orphan")
+
+
+class DictData(Base):
+    """字典数据表"""
+    __tablename__ = "dict_data"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    dict_type_id = Column(Integer, ForeignKey("dict_types.id", ondelete="CASCADE"))
+    dict_code = Column(String(50), nullable=False, index=True)
+    dict_label = Column(String(100), nullable=False)
+    dict_value = Column(String(100), nullable=False)
+    sort_order = Column(Integer, default=0)
+    is_enabled = Column(Boolean, default=True)
+    is_default = Column(Boolean, default=False)
+    css_class = Column(String(50))
+    remark = Column(Text)
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+    
+    # 关系
+    dict_type = relationship("DictType", back_populates="data_items")

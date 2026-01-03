@@ -1,0 +1,114 @@
+"""
+Enum CRUD API
+
+此文件由 fastapi-enum-dict 自动生成
+"""
+from fastapi import APIRouter, HTTPException, Query
+from typing import List, Optional
+from {{ base_dir }}.schemas.enum_dict_schemas import EnumCreateRequest, EnumUpdateRequest, SuccessResponse
+from {{ base_dir }}.core.enum_manager import EnumManager
+
+router = APIRouter()
+
+# 配置（从.enum-dict.yaml读取）
+enum_manager = EnumManager(
+    enums_file="{{ base_dir }}/data/enums.py",
+    labels_file="{{ base_dir }}/data/enum_labels.py",
+    helper_file="{{ base_dir }}/data/enum_helper.py",
+    templates_dir="{{ base_dir }}/templates"
+)
+
+
+@router.post("/", response_model=SuccessResponse)
+async def create_enum(request: EnumCreateRequest):
+    """创建Enum"""
+    result = enum_manager.create(
+        name=request.name,
+        values=request.values
+    )
+    
+    if result['success']:
+        return SuccessResponse(
+            message=result['message'],
+            data={'class_name': result.get('class_name')}
+        )
+    else:
+        raise HTTPException(status_code=400, detail=result['message'])
+
+
+@router.get("/")
+async def list_enums(search: Optional[str] = Query(None)):
+    """列出所有Enum"""
+    from {{ base_dir }}.data.enum_labels import ENUM_METADATA
+    
+    enums = []
+    for name, meta in ENUM_METADATA.items():
+        if search and search not in name and search not in meta.get('description', ''):
+            continue
+        
+        enums.append({
+            'name': name,
+            'description': meta.get('description', ''),
+            'type': meta.get('type', 'enum'),
+            'count': len(meta.get('values', []))
+        })
+    
+    return enums
+
+
+@router.get("/{name}")
+async def get_enum(name: str):
+    """获取Enum详情"""
+    from {{ base_dir }}.data.enum_labels import ENUM_LABELS, ENUM_METADATA
+    
+    if name not in ENUM_METADATA:
+        raise HTTPException(status_code=404, detail=f"Enum {name} not found")
+    
+    meta = ENUM_METADATA[name]
+    labels = ENUM_LABELS.get(name, {})
+    
+    return {
+        'name': name,
+        'description': meta.get('description', ''),
+        'type': meta.get('type', 'enum'),
+        'db_type': meta.get('db_type', ''),
+        'values': [
+            {
+                'name': v['name'],
+                'value': v['value'],
+                'label': labels.get(v['value'], '')
+            }
+            for v in meta.get('values', [])
+        ]
+    }
+
+
+@router.put("/{name}", response_model=SuccessResponse)
+async def update_enum(name: str, request: EnumUpdateRequest):
+    """更新Enum"""
+    kwargs = {}
+    if request.operation == "add":
+        kwargs['label'] = request.label
+    elif request.operation == "remove":
+        kwargs['value'] = request.value
+    elif request.operation == "rename":
+        kwargs['old_label'] = request.old_label
+        kwargs['new_label'] = request.new_label
+    
+    result = enum_manager.update(name, request.operation, **kwargs)
+    
+    if result['success']:
+        return SuccessResponse(message=result['message'])
+    else:
+        raise HTTPException(status_code=400, detail=result['message'])
+
+
+@router.delete("/{name}", response_model=SuccessResponse)
+async def delete_enum(name: str, force: bool = Query(False)):
+    """删除Enum"""
+    result = enum_manager.delete(name, force=force)
+    
+    if result['success']:
+        return SuccessResponse(message=result['message'])
+    else:
+        raise HTTPException(status_code=400, detail=result['message'])
