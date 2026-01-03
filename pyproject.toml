@@ -13,7 +13,7 @@ authors = [
 ]
 keywords = ["fastapi", "enum", "dict", "crud", "scaffolding", "code-generator"]
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
@@ -43,9 +43,10 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/mnvr/fastapi-enum-dict"
-Documentation = "https://github.com/mnvr/fastapi-enum-dict#readme"
-Repository = "https://github.com/mnvr/fastapi-enum-dict"
+Homepage = "https://github.com/btrobot/fastapi-enum-dict"
+Documentation = "https://github.com/btrobot/fastapi-enum-dict#readme"
+Repository = "https://github.com/btrobot/fastapi-enum-dict"
+Issues = "https://github.com/btrobot/fastapi-enum-dict/issues"
 
 [project.scripts]
 enum-dict = "fastapi_enum_dict.cli:main"
