@@ -1,12 +1,141 @@
 ﻿"""
-枚举辅助函数
+Enum Helper - 零维护自动化版本
 
 此文件由 fastapi-enum-dict 自动生成
+使用 Python 模块级 __getattr__ 实现零维护的动态函数调用
+
+核心特性:
+- ✅ 零维护：添加新Enum自动可用，无需修改此文件
+- ✅ 智能匹配：自动转换 snake_case -> Enum类名
+- ✅ 完全自动：从 ENUM_METADATA 自动读取所有Enum
+
+使用示例:
+    from {{ base_dir }}.data.enum_helper import get_gender_label
+    label = get_gender_label(0)  # "Male"
+    
+或:
+    import {{ base_dir }}.data.enum_helper as helper
+    label = helper.get_person_status_label(1)  # "Active"
 """
-from {{ base_dir }}.data.enum_labels import get_enum_label
+
+from {{ base_dir }}.data.enum_labels import get_enum_label, ENUM_METADATA
 
 
-# 辅助函数将在这里自动生成
-# 例如:
-# def get_order_status_label(value: int) -> str:
-#     return get_enum_label("OrderStatus", value)
+def _snake_to_enum_name(snake_case: str) -> tuple:
+    """
+    将 snake_case 转换为可能的 Enum 类名
+    
+    返回多个候选名称，按优先级排序
+    
+    Args:
+        snake_case: 下划线命名的字符串 (如 "person_status")
+    
+    Returns:
+        候选Enum类名元组 (如 ("Personstatus", "PersonStatus"))
+    
+    示例:
+        "gender" -> ("Gender",)
+        "person_status" -> ("Personstatus", "PersonStatus")
+        "training_plan_status" -> ("Trainingplanstatus", "TrainingPlanStatus")
+    """
+    candidates = []
+    
+    # 候选1: 移除下划线 + 首字母大写 + 其余小写 (CLI默认格式)
+    # person_status -> personstatus -> Personstatus
+    no_underscore = snake_case.replace('_', '')
+    candidates.append(no_underscore.capitalize())
+    
+    # 候选2: PascalCase (每个单词首字母大写)
+    # person_status -> PersonStatus
+    if '_' in snake_case:
+        candidates.append(''.join(word.capitalize() for word in snake_case.split('_')))
+    
+    return tuple(candidates)
+
+
+def __getattr__(name: str):
+    """
+    模块级动态属性访问 - 零维护自动化
+    
+    工作流程:
+    1. 检查是否是 get_xxx_label 格式的函数名
+    2. 提取 xxx (snake_case形式的enum名称)
+    3. 智能转换为可能的Enum类名
+    4. 在 ENUM_METADATA 中查找匹配的Enum
+    5. 找到后动态创建并返回对应的helper函数
+    
+    Args:
+        name: 请求的属性/函数名
+    
+    Returns:
+        动态创建的helper函数
+    
+    Raises:
+        AttributeError: 如果不是有效的函数名或找不到对应的Enum
+    
+    示例:
+        get_gender_label(0)
+        -> 提取 "gender"
+        -> 候选: ["Gender"]
+        -> 在ENUM_METADATA中找到 "Gender"
+        -> 返回 lambda v: get_enum_label("Gender", v)
+        
+        get_person_status_label(1)
+        -> 提取 "person_status"  
+        -> 候选: ["Personstatus", "PersonStatus"]
+        -> 在ENUM_METADATA中找到 "Personstatus"
+        -> 返回对应函数
+    """
+    # 检查是否是 get_xxx_label 格式
+    if name.startswith("get_") and name.endswith("_label"):
+        # 提取 snake_case 名称
+        snake_case = name[4:-6]  # 去掉 "get_" 和 "_label"
+        
+        # 生成候选 Enum 类名
+        candidates = _snake_to_enum_name(snake_case)
+        
+        # 在 ENUM_METADATA 中查找
+        for candidate in candidates:
+            if candidate in ENUM_METADATA:
+                enum_name = candidate
+                
+                # 动态创建函数
+                def helper_func(value: int) -> str:
+                    """获取枚举值的标签（自动生成）"""
+                    return get_enum_label(enum_name, value)
+                
+                # 设置元数据（方便调试）
+                helper_func.__name__ = name
+                helper_func.__doc__ = f"获取 {enum_name} 枚举的标签 (零维护自动生成)"
+                
+                return helper_func
+        
+        # 如果所有候选都找不到，提供友好的错误信息
+        available_enums = list(ENUM_METADATA.keys())
+        raise AttributeError(
+            f"No Enum found for '{name}'. "
+            f"Tried: {candidates}. "
+            f"Available Enums: {available_enums}"
+        )
+    
+    # 不是 get_xxx_label 格式
+    raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
+
+
+# 导出核心函数（也可以直接使用）
+__all__ = ["get_enum_label", "list_available_enums"]
+
+
+def list_available_enums():
+    """
+    列出所有可用的Enum（调试用）
+    
+    Returns:
+        所有Enum类名的列表
+    
+    示例:
+        >>> from {{ base_dir }}.data.enum_helper import list_available_enums
+        >>> print(list_available_enums())
+        ['Gender', 'Personstatus', 'Trainingplanstatus', ...]
+    """
+    return list(ENUM_METADATA.keys())

@@ -1,48 +1,76 @@
 """
-Dict数据库模型
+字典管理模型（增强版）
+包含字典类型和字典数据两个表
 
 此文件由 fastapi-enum-dict 自动生成
+包含完整的企业级字段
 """
-from sqlalchemy import Column, Integer, String, Boolean, Text, DateTime, ForeignKey
-from sqlalchemy.orm import relationship
+from sqlalchemy import String, Boolean, Text, JSON, ForeignKey, Index, UniqueConstraint, func
+from sqlalchemy.orm import Mapped, mapped_column
+from {{ base_dir }}.database import Base
 from datetime import datetime
-from {{ base_dir }}.models.database import Base
+from typing import Optional
 
 
 class DictType(Base):
-    """字典类型表"""
+    """字典类型表 - 管理字典分类"""
     __tablename__ = "dict_types"
     
-    id = Column(Integer, primary_key=True, index=True)
-    dict_code = Column(String(50), unique=True, nullable=False, index=True)
-    dict_name = Column(String(100), nullable=False)
-    description = Column(String(255))
-    is_enabled = Column(Boolean, default=True)
-    sort_order = Column(Integer, default=0)
-    remark = Column(Text)
-    created_at = Column(DateTime, default=datetime.now)
-    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    type_code: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
+    type_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(Text)
     
-    # 关系
-    data_items = relationship("DictData", back_populates="dict_type", cascade="all, delete-orphan")
+    # 权限控制字段
+    is_system: Mapped[bool] = mapped_column(Boolean, default=False)  # 系统预置
+    allow_add: Mapped[bool] = mapped_column(Boolean, default=True)  # 允许新增
+    allow_delete: Mapped[bool] = mapped_column(Boolean, default=True)  # 允许删除
+    
+    is_active: Mapped[bool] = mapped_column(default=True)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    updated_at: Mapped[Optional[datetime]] = mapped_column(onupdate=func.now())
+    created_by: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"))
+    updated_by: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"))
+    
+    __table_args__ = (
+        Index('idx_dict_type_code', 'type_code'),
+        Index('idx_dict_type_active', 'is_active'),
+    )
 
 
 class DictData(Base):
-    """字典数据表"""
+    """字典数据表 - 存储具体字典项"""
     __tablename__ = "dict_data"
     
-    id = Column(Integer, primary_key=True, index=True)
-    dict_type_id = Column(Integer, ForeignKey("dict_types.id", ondelete="CASCADE"))
-    dict_code = Column(String(50), nullable=False, index=True)
-    dict_label = Column(String(100), nullable=False)
-    dict_value = Column(String(100), nullable=False)
-    sort_order = Column(Integer, default=0)
-    is_enabled = Column(Boolean, default=True)
-    is_default = Column(Boolean, default=False)
-    css_class = Column(String(50))
-    remark = Column(Text)
-    created_at = Column(DateTime, default=datetime.now)
-    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    type_code: Mapped[str] = mapped_column(ForeignKey("dict_types.type_code"), nullable=False)
+    dict_code: Mapped[str] = mapped_column(String(50), nullable=False)
+    dict_label: Mapped[str] = mapped_column(String(100), nullable=False)
+    dict_value: Mapped[str] = mapped_column(String(100), nullable=False)
     
-    # 关系
-    dict_type = relationship("DictType", back_populates="data_items")
+    # 父级关系（支持层级）
+    parent_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("dict_data.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+        comment="父级ID（引用 dict_data.id）"
+    )
+    
+    sort_order: Mapped[int] = mapped_column(default=0)
+    css_class: Mapped[Optional[str]] = mapped_column(String(50))
+    is_default: Mapped[bool] = mapped_column(default=False)
+    is_active: Mapped[bool] = mapped_column(default=True)
+    remark: Mapped[Optional[str]] = mapped_column(Text)
+    extra_data: Mapped[Optional[dict]] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    updated_at: Mapped[Optional[datetime]] = mapped_column(onupdate=func.now())
+    created_by: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"))
+    updated_by: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"))
+    
+    __table_args__ = (
+        UniqueConstraint('type_code', 'dict_code', name='uk_type_code'),
+        Index('idx_dict_data_type', 'type_code'),
+        Index('idx_dict_data_code', 'dict_code'),
+        Index('idx_dict_data_active', 'is_active'),
+        Index('idx_dict_data_parent_id', 'parent_id'),
+    )
